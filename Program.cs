@@ -37,6 +37,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         return;
 
     var chatId = message.Chat.Id;
+    var targetUrl = "http://huc.edu.iq:9596/";
 
     Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
 
@@ -49,7 +50,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  "/ping - اختبار الاتصال بالخادم (5 محاولات)",
+                  $"/ping - اختبار الاتصال بالخادم ({targetUrl})",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("/stop", StringComparison.OrdinalIgnoreCase))
@@ -63,26 +64,34 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     else if (messageText.Equals("/ping", StringComparison.OrdinalIgnoreCase) && isRunning)
     {
         // إرسال رسالة بدء الاختبار
-        await botClient.SendTextMessageAsync(
+        var startMessage = await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "🔄 بدء اختبار الاتصال بالخادم (5 محاولات)...",
+            text: $"🔄 جاري اختبار الاتصال بالخادم:\n{targetUrl}\n(5 محاولات)...",
             cancellationToken: cancellationToken);
 
         for (int i = 1; i <= 5; i++)
         {
             try
             {
-                var result = await NetworkService.TestConnection("http://huc.edu.iq:9596/");
+                var result = await NetworkService.TestConnection(targetUrl);
                 await botClient.SendTextMessageAsync(
                     chatId: chatId,
-                    text: $"📌 المحاولة #{i}:\n{result}",
+                    text: $"📊 <b>نتيجة المحاولة #{i}</b>\n" +
+                          $"🔗 <b>الرابط:</b> {targetUrl}\n" +
+                          $"{result}\n" +
+                          $"─────────────────────",
+                    parseMode: ParseMode.Html,
                     cancellationToken: cancellationToken);
             }
             catch (Exception ex)
             {
                 await botClient.SendTextMessageAsync(
                     chatId: chatId,
-                    text: $"❌ فشل المحاولة #{i}\nالخطأ: {ex.Message}",
+                    text: $"❌ <b>فشل المحاولة #{i}</b>\n" +
+                          $"🔗 <b>الرابط:</b> {targetUrl}\n" +
+                          $"الخطأ: {ex.Message}\n" +
+                          $"─────────────────────",
+                    parseMode: ParseMode.Html,
                     cancellationToken: cancellationToken);
             }
 
@@ -100,7 +109,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  "/ping - اختبار الاتصال بالخادم (5 محاولات)",
+                  "/ping - اختبار الاتصال بالخادم",
             cancellationToken: cancellationToken);
     }
 }
@@ -133,28 +142,28 @@ public static class NetworkService
             
             if (response.IsSuccessStatusCode)
             {
-                return $"✅ الحالة: ناجح\n" +
-                       $"⏱️ الوقت: {stopwatch.ElapsedMilliseconds}ms\n" +
-                       $"🔢 الكود: {(int)response.StatusCode}";
+                return $"✅ <b>الحالة:</b> ناجح\n" +
+                       $"⏱️ <b>الوقت:</b> {stopwatch.ElapsedMilliseconds}ms\n" +
+                       $"🔢 <b>كود الحالة:</b> {(int)response.StatusCode}";
             }
             
-            return $"⚠️ الحالة: مشكلة\n" +
-                   $"⏱️ الوقت: {stopwatch.ElapsedMilliseconds}ms\n" +
-                   $"🔢 الكود: {(int)response.StatusCode}";
+            return $"⚠️ <b>الحالة:</b> مشكلة\n" +
+                   $"⏱️ <b>الوقت:</b> {stopwatch.ElapsedMilliseconds}ms\n" +
+                   $"🔢 <b>كود الحالة:</b> {(int)response.StatusCode}";
         }
         catch (TaskCanceledException)
         {
-            return "❌ الحالة: انتهى الوقت المحدد (3 ثواني)";
+            return "⌛ <b>الحالة:</b> انتهى الوقت المحدد (3 ثواني)";
         }
         catch (HttpRequestException ex)
         {
-            return $"❌ الحالة: فشل الاتصال\n" +
-                   $"📌 التفاصيل: {ex.Message}";
+            return $"❌ <b>الحالة:</b> فشل الاتصال\n" +
+                   $"📌 <b>التفاصيل:</b> {ex.Message}";
         }
         catch (Exception ex)
         {
-            return $"❌ الحالة: خطأ غير متوقع\n" +
-                   $"📌 التفاصيل: {ex.Message}";
+            return $"💢 <b>الحالة:</b> خطأ غير متوقع\n" +
+                   $"📌 <b>التفاصيل:</b> {ex.Message}";
         }
     }
 }
