@@ -49,7 +49,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  "ping - اختبار الاتصال",
+                  "ping - اختبار الاتصال بين google والخادم",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("/stop", StringComparison.OrdinalIgnoreCase))
@@ -64,10 +64,14 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     {
         try
         {
-            var pingResult = await NetworkService.TestConnection("http://huc.edu.iq:9596/");
+            var googleResult = await NetworkService.TestConnection("https://www.google.com");
+            var serverResult = await NetworkService.TestConnection("http://huc.edu.iq:9596/");
+            
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
-                text: pingResult,
+                text: $"🌐 نتائج اختبار الاتصال:\n\n" +
+                      $"🔹 اتصال بموقع Google:\n{googleResult}\n\n" +
+                      $"🔹 اتصال بالخادم:\n{serverResult}",
                 cancellationToken: cancellationToken);
         }
         catch (Exception ex)
@@ -87,7 +91,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  "ping - اختبار الاتصال",
+                  "ping - اختبار الاتصال بين google والخادم",
             cancellationToken: cancellationToken);
     }
 }
@@ -120,21 +124,28 @@ public static class NetworkService
             
             if (response.IsSuccessStatusCode)
             {
-                return $"✅ اتصال ناجح!\n" +
-                       $"🔹 الرابط: {url}\n" +
-                       $"🔹 وقت الاستجابة: {stopwatch.ElapsedMilliseconds}ms\n" +
-                       $"🔹 الحالة: {response.StatusCode}";
+                return $"✅ الحالة: ناجح\n" +
+                       $"⏱️ وقت الاستجابة: {stopwatch.ElapsedMilliseconds}ms\n" +
+                       $"🔢 كود الحالة: {(int)response.StatusCode}";
             }
             
-            return $"⚠️ مشكلة في الاتصال\n" +
-                   $"🔹 الرابط: {url}\n" +
-                   $"🔹 رمز الحالة: {response.StatusCode}";
+            return $"⚠️ الحالة: مشكلة\n" +
+                   $"⏱️ وقت الاستجابة: {stopwatch.ElapsedMilliseconds}ms\n" +
+                   $"🔢 كود الحالة: {(int)response.StatusCode}";
+        }
+        catch (TaskCanceledException)
+        {
+            return "❌ الحالة: انتهى الوقت المحدد (5 ثواني)";
+        }
+        catch (HttpRequestException ex)
+        {
+            return $"❌ الحالة: فشل الاتصال\n" +
+                   $"📌 التفاصيل: {ex.Message}";
         }
         catch (Exception ex)
         {
-            return $"❌ فشل الاتصال\n" +
-                   $"🔹 الرابط: {url}\n" +
-                   $"🔹 الخطأ: {ex.Message}";
+            return $"❌ الحالة: خطأ غير متوقع\n" +
+                   $"📌 التفاصيل: {ex.Message}";
         }
     }
 }
