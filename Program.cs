@@ -5,12 +5,10 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
-// توكن البوت الخاص بك
 var botClient = new TelegramBotClient("7930521042:AAFoFPdBteezf7fxQg9DHOxVC9H8jWEG9dM");
 
 using CancellationTokenSource cts = new();
 
-// إعدادات استقبال الرسائل
 ReceiverOptions receiverOptions = new()
 {
     AllowedUpdates = Array.Empty<UpdateType>()
@@ -18,7 +16,6 @@ ReceiverOptions receiverOptions = new()
 
 bool isRunning = true;
 
-// بدء استقبال الرسائل
 botClient.StartReceiving(
     updateHandler: HandleUpdateAsync,
     pollingErrorHandler: HandlePollingErrorAsync,
@@ -27,10 +24,9 @@ botClient.StartReceiving(
 );
 
 var me = await botClient.GetMeAsync();
-Console.WriteLine($"البوت {me.Username} يعمل الآن");
-await Task.Delay(-1); // إبقاء التطبيق يعمل
+Console.WriteLine($"Bot {me.Username} is running");
+await Task.Delay(-1);
 
-// دالة معالجة الرسائل
 async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
 {
     if (update.Message is not { } message)
@@ -41,14 +37,14 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
 
     var chatId = message.Chat.Id;
 
-    Console.WriteLine($"تم استقبال رسالة '{messageText}' في الدردشة {chatId}.");
+    Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
 
     if (messageText.Equals("/start", StringComparison.OrdinalIgnoreCase))
     {
         isRunning = true;
         await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "البوت يعمل الآن!",
+            text: "Bot is now running!",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("/stop", StringComparison.OrdinalIgnoreCase))
@@ -56,24 +52,24 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         isRunning = false;
         await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "تم إيقاف البوت. أرسل /start لتشغيله مرة أخرى.",
+            text: "Bot is now stopped. Send /start to run again.",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("ping", StringComparison.OrdinalIgnoreCase) && isRunning)
     {
         try
         {
-            var pingResult = PingHost("185.140.192.85");
+            var pingResult = await PingHostAsync("185.140.192.85");
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
-                text: $"نتيجة ping: {pingResult}",
+                text: $"Ping result: {pingResult}",
                 cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
-                text: $"حدث خطأ أثناء تنفيذ ping: {ex.Message}",
+                text: $"Ping error: {ex.Message}",
                 cancellationToken: cancellationToken);
         }
     }
@@ -81,18 +77,17 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     {
         await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "أمر غير معروف. الأوامر المتاحة: /start, /stop, ping",
+            text: "Unknown command. Available commands: /start, /stop, ping",
             cancellationToken: cancellationToken);
     }
 }
 
-// دالة معالجة الأخطاء
 Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
 {
     var ErrorMessage = exception switch
     {
         ApiRequestException apiRequestException
-            => $"خطأ في API تلجرام:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
+            => $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
         _ => exception.ToString()
     };
 
@@ -100,21 +95,21 @@ Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, 
     return Task.CompletedTask;
 }
 
-// دالة تنفيذ ping
-string PingHost(string host)
+async Task<string> PingHostAsync(string host)
 {
-    using var ping = new System.Net.NetworkInformation.Ping();
     try
     {
-        var reply = ping.Send(host, 1000); // مهلة ثانية واحدة
+        using var ping = new System.Net.NetworkInformation.Ping();
+        var reply = await ping.SendPingAsync(host, 1000);
+        
         if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
         {
-            return $"نجاح - وقت الاستجابة: {reply.RoundtripTime}ms";
+            return $"Success - Roundtrip: {reply.RoundtripTime}ms";
         }
-        return $"فشل - الحالة: {reply.Status}";
+        return $"Failed - Status: {reply.Status}";
     }
     catch (Exception ex)
     {
-        return $"خطأ: {ex.Message}";
+        return $"Error: {ex.Message}";
     }
 }
