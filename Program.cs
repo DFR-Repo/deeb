@@ -64,7 +64,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     {
         try
         {
-            var pingResult = await NetworkService.TestConnection("185.140.192.85");
+            var pingResult = await NetworkService.TestConnection("http://huc.edu.iq:9596/");
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
                 text: pingResult,
