@@ -3,6 +3,7 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 using System.Net.Http;
 using System.Diagnostics;
 
@@ -37,20 +38,31 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         return;
 
     var chatId = message.Chat.Id;
-    var targetUrl = "http://huc.edu.iq:9596/";
 
     Console.WriteLine($"Received a '{messageText}' message in chat {chatId}.");
 
     if (messageText.Equals("/start", StringComparison.OrdinalIgnoreCase))
     {
         isRunning = true;
+        
+        var replyMarkup = new ReplyKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                new KeyboardButton("النظام") { RequestUrl = "http://huc.edu.iq:9596/" },
+                new KeyboardButton("موقع الجامعة") { RequestUrl = "http://huc.edu.iq" }
+            }
+        })
+        {
+            ResizeKeyboard = true,
+            OneTimeKeyboard = true
+        };
+
         await botClient.SendTextMessageAsync(
             chatId: chatId,
             text: "✅ البوت يعمل الآن!\n" +
-                  "الأوامر المتاحة:\n" +
-                  "/start - بدء التشغيل\n" +
-                  "/stop - إيقاف البوت\n" +
-                  $"/ping - اختبار الاتصال بالخادم",
+                  "اختر أحد الخيارات للبدء:",
+            replyMarkup: replyMarkup,
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("/stop", StringComparison.OrdinalIgnoreCase))
@@ -59,47 +71,16 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         await botClient.SendTextMessageAsync(
             chatId: chatId,
             text: "⛔ البوت متوقف الآن. أرسل /start لإعادة التشغيل",
+            replyMarkup: new ReplyKeyboardRemove(),
             cancellationToken: cancellationToken);
     }
-    else if (messageText.Equals("/ping", StringComparison.OrdinalIgnoreCase) && isRunning)
+    else if (messageText.Equals("النظام", StringComparison.OrdinalIgnoreCase) && isRunning)
     {
-        // إرسال رسالة بدء الاختبار
-        var startMessage = await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: $"🔄 جاري اختبار الاتصال بالخادم:\n{targetUrl}\n(5 محاولات)...",
-            cancellationToken: cancellationToken);
-
-        for (int i = 1; i <= 5; i++)
-        {
-            try
-            {
-                var result = await NetworkService.TestConnection(targetUrl);
-                await botClient.SendTextMessageAsync(
-                    chatId: chatId,
-                    text: $"📊 <b>نتيجة المحاولة #{i}</b>\n" +
-                          $"🔗 <b>الرابط:</b> {targetUrl}\n" +
-                          $"{result}\n" +
-                          $"─────────────────────",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                await botClient.SendTextMessageAsync(
-                    chatId: chatId,
-                    text: $"❌ <b>فشل المحاولة #{i}</b>\n" +
-                          $"🔗 <b>الرابط:</b> {targetUrl}\n" +
-                          $"الخطأ: {ex.Message}\n" +
-                          $"─────────────────────",
-                    parseMode: ParseMode.Html,
-                    cancellationToken: cancellationToken);
-            }
-
-            if (i < 5) // لا تنتظر بعد المحاولة الأخيرة
-            {
-                await Task.Delay(1000); // انتظار ثانية بين المحاولات
-            }
-        }
+        await TestAndSendResult(botClient, chatId, "http://huc.edu.iq:9596/", "نظام الجامعة", cancellationToken);
+    }
+    else if (messageText.Equals("موقع الجامعة", StringComparison.OrdinalIgnoreCase) && isRunning)
+    {
+        await TestAndSendResult(botClient, chatId, "http://huc.edu.iq", "الموقع الرسمي للجامعة", cancellationToken);
     }
     else if (isRunning)
     {
@@ -109,7 +90,40 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  "/ping - اختبار الاتصال بالخادم",
+                  "أو استخدم الأزرار الظاهرة",
+            cancellationToken: cancellationToken);
+    }
+}
+
+async Task TestAndSendResult(ITelegramBotClient botClient, long chatId, string url, string siteName, CancellationToken cancellationToken)
+{
+    // إرسال رسالة بدء الاختبار
+    await botClient.SendTextMessageAsync(
+        chatId: chatId,
+        text: $"🔄 جاري اختبار اتصال {siteName}...",
+        cancellationToken: cancellationToken);
+
+    try
+    {
+        var result = await NetworkService.TestConnection(url);
+        await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: $"📊 <b>نتيجة اختبار {siteName}</b>\n" +
+                  $"🔗 <b>الرابط:</b> {url}\n" +
+                  $"{result}\n" +
+                  $"─────────────────────",
+            parseMode: ParseMode.Html,
+            cancellationToken: cancellationToken);
+    }
+    catch (Exception ex)
+    {
+        await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: $"❌ <b>فشل اختبار {siteName}</b>\n" +
+                  $"🔗 <b>الرابط:</b> {url}\n" +
+                  $"الخطأ: {ex.Message}\n" +
+                  $"─────────────────────",
+            parseMode: ParseMode.Html,
             cancellationToken: cancellationToken);
     }
 }
@@ -134,7 +148,7 @@ public static class NetworkService
         try
         {
             using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(3);
+            client.Timeout = TimeSpan.FromSeconds(5);
             
             var stopwatch = Stopwatch.StartNew();
             var response = await client.GetAsync(url);
@@ -153,7 +167,7 @@ public static class NetworkService
         }
         catch (TaskCanceledException)
         {
-            return "⌛ <b>الحالة:</b> انتهى الوقت المحدد (3 ثواني)";
+            return "⌛ <b>الحالة:</b> انتهى الوقت المحدد (5 ثواني)";
         }
         catch (HttpRequestException ex)
         {
