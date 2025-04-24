@@ -102,7 +102,7 @@ public static class PingService
         try
         {
             using var ping = new Ping();
-            var reply = await ping.SendPingAsync(host, 1000);
+            var reply = await ping.SendPingAsync(host, 3000);
             
             if (reply.Status == IPStatus.Success)
             {
