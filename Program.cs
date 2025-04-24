@@ -3,7 +3,8 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using System.Net.NetworkInformation;
+using System.Net.Http;
+using System.Diagnostics;
 
 var botClient = new TelegramBotClient("7930521042:AAFoFPdBteezf7fxQg9DHOxVC9H8jWEG9dM");
 
@@ -44,7 +45,11 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         isRunning = true;
         await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "Bot is now running!",
+            text: "✅ البوت يعمل الآن!\n" +
+                  "الأوامر المتاحة:\n" +
+                  "/start - بدء التشغيل\n" +
+                  "/stop - إيقاف البوت\n" +
+                  "ping - اختبار الاتصال",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("/stop", StringComparison.OrdinalIgnoreCase))
@@ -52,14 +57,14 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         isRunning = false;
         await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "Bot is now stopped. Send /start to run again.",
+            text: "⛔ البوت متوقف الآن. أرسل /start لإعادة التشغيل",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("ping", StringComparison.OrdinalIgnoreCase) && isRunning)
     {
         try
         {
-            var pingResult = await PingService.PingHost("8.8.8.8");
+            var pingResult = await NetworkService.TestConnection("https://google.com");
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
                 text: pingResult,
@@ -69,7 +74,8 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         {
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
-                text: $"Ping failed: {ex.Message}",
+                text: $"❌ فشل اختبار الاتصال\n" +
+                      $"الخطأ: {ex.Message}",
                 cancellationToken: cancellationToken);
         }
     }
@@ -77,7 +83,11 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     {
         await botClient.SendTextMessageAsync(
             chatId: chatId,
-            text: "Unknown command. Available commands: /start, /stop, ping",
+            text: "⚠️ أمر غير معروف\n" +
+                  "الأوامر المتاحة:\n" +
+                  "/start - بدء التشغيل\n" +
+                  "/stop - إيقاف البوت\n" +
+                  "ping - اختبار الاتصال",
             cancellationToken: cancellationToken);
     }
 }
@@ -87,7 +97,7 @@ Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, 
     var ErrorMessage = exception switch
     {
         ApiRequestException apiRequestException
-            => $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
+            => $"خطأ في تلجرام API:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
         _ => exception.ToString()
     };
 
@@ -95,37 +105,36 @@ Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, 
     return Task.CompletedTask;
 }
 
-public static class PingService
+public static class NetworkService
 {
-    public static async Task<string> PingHost(string host)
+    public static async Task<string> TestConnection(string url)
     {
         try
         {
-            using var ping = new Ping();
-            var reply = await ping.SendPingAsync(host, 3000);
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
             
-            if (reply.Status == IPStatus.Success)
+            var stopwatch = Stopwatch.StartNew();
+            var response = await client.GetAsync(url);
+            stopwatch.Stop();
+            
+            if (response.IsSuccessStatusCode)
             {
-                return $"✅ Ping successful!\n" +
-                       $"🔹 IP: {host}\n" +
-                       $"🔹 Time: {reply.RoundtripTime}ms\n" +
-                       $"🔹 TTL: {reply.Options?.Ttl ?? 0}";
+                return $"✅ اتصال ناجح!\n" +
+                       $"🔹 الرابط: {url}\n" +
+                       $"🔹 وقت الاستجابة: {stopwatch.ElapsedMilliseconds}ms\n" +
+                       $"🔹 الحالة: {response.StatusCode}";
             }
-            return $"❌ Ping failed\n" +
-                   $"🔹 Status: {reply.Status}\n" +
-                   $"🔹 IP: {host}";
-        }
-        catch (PingException ex)
-        {
-            return $"❌ Ping error\n" +
-                   $"🔹 IP: {host}\n" +
-                   $"🔹 Error: {ex.InnerException?.Message ?? ex.Message}";
+            
+            return $"⚠️ مشكلة في الاتصال\n" +
+                   $"🔹 الرابط: {url}\n" +
+                   $"🔹 رمز الحالة: {response.StatusCode}";
         }
         catch (Exception ex)
         {
-            return $"❌ General error\n" +
-                   $"🔹 IP: {host}\n" +
-                   $"🔹 Error: {ex.Message}";
+            return $"❌ فشل الاتصال\n" +
+                   $"🔹 الرابط: {url}\n" +
+                   $"🔹 الخطأ: {ex.Message}";
         }
     }
 }
