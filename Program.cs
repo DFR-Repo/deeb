@@ -77,7 +77,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     }
     else if (messageText.Equals("موقع الجامعة", StringComparison.OrdinalIgnoreCase) && isRunning)
     {
-        await TestAndSendResult(botClient, chatId, "http://huc.edu.iq", "الموقع الرسمي للجامعة", cancellationToken);
+        await TestAndSendResult(botClient, chatId, "https://huc.edu.iq", "الموقع الرسمي للجامعة", cancellationToken);
     }
     else if (isRunning)
     {
