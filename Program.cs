@@ -50,7 +50,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  $"/ping - اختبار الاتصال بالخادم ({targetUrl})",
+                  $"/ping - اختبار الاتصال بالخادم",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("/stop", StringComparison.OrdinalIgnoreCase))
