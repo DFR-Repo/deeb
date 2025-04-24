@@ -1,9 +1,9 @@
-using System.Diagnostics;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using System.Net.NetworkInformation;
 
 var botClient = new TelegramBotClient("7930521042:AAFoFPdBteezf7fxQg9DHOxVC9H8jWEG9dM");
 
@@ -59,17 +59,17 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     {
         try
         {
-            var pingResult = await PingHostAsync("185.140.192.85");
+            var pingResult = await PingService.PingHost("185.140.192.85");
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
-                text: $"Ping result: {pingResult}",
+                text: pingResult,
                 cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
-                text: $"Ping error: {ex.Message}",
+                text: $"Ping failed: {ex.Message}",
                 cancellationToken: cancellationToken);
         }
     }
@@ -95,21 +95,37 @@ Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, 
     return Task.CompletedTask;
 }
 
-async Task<string> PingHostAsync(string host)
+public static class PingService
 {
-    try
+    public static async Task<string> PingHost(string host)
     {
-        using var ping = new System.Net.NetworkInformation.Ping();
-        var reply = await ping.SendPingAsync(host, 1000);
-        
-        if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
+        try
         {
-            return $"Success - Roundtrip: {reply.RoundtripTime}ms";
+            using var ping = new Ping();
+            var reply = await ping.SendPingAsync(host, 1000);
+            
+            if (reply.Status == IPStatus.Success)
+            {
+                return $"✅ Ping successful!\n" +
+                       $"🔹 IP: {host}\n" +
+                       $"🔹 Time: {reply.RoundtripTime}ms\n" +
+                       $"🔹 TTL: {reply.Options?.Ttl ?? 0}";
+            }
+            return $"❌ Ping failed\n" +
+                   $"🔹 Status: {reply.Status}\n" +
+                   $"🔹 IP: {host}";
         }
-        return $"Failed - Status: {reply.Status}";
-    }
-    catch (Exception ex)
-    {
-        return $"Error: {ex.Message}";
+        catch (PingException ex)
+        {
+            return $"❌ Ping error\n" +
+                   $"🔹 IP: {host}\n" +
+                   $"🔹 Error: {ex.InnerException?.Message ?? ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            return $"❌ General error\n" +
+                   $"🔹 IP: {host}\n" +
+                   $"🔹 Error: {ex.Message}";
+        }
     }
 }
