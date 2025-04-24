@@ -62,31 +62,34 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     }
     else if (messageText.Equals("/ping", StringComparison.OrdinalIgnoreCase) && isRunning)
     {
-        try
+        // إرسال رسالة بدء الاختبار
+        await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: "🔄 بدء اختبار الاتصال بالخادم (5 محاولات)...",
+            cancellationToken: cancellationToken);
+
+        for (int i = 1; i <= 5; i++)
         {
-            var results = new System.Text.StringBuilder();
-            results.AppendLine("🔄 جاري اختبار الاتصال بالخادم (5 محاولات)...");
-            
-            for (int i = 1; i <= 5; i++)
+            try
             {
                 var result = await NetworkService.TestConnection("http://huc.edu.iq:9596/");
-                results.AppendLine($"\nالمحاولة #{i}:");
-                results.AppendLine(result);
+                await botClient.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: $"📌 المحاولة #{i}:\n{result}",
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                await botClient.SendTextMessageAsync(
+                    chatId: chatId,
+                    text: $"❌ فشل المحاولة #{i}\nالخطأ: {ex.Message}",
+                    cancellationToken: cancellationToken);
+            }
+
+            if (i < 5) // لا تنتظر بعد المحاولة الأخيرة
+            {
                 await Task.Delay(1000); // انتظار ثانية بين المحاولات
             }
-            
-            await botClient.SendTextMessageAsync(
-                chatId: chatId,
-                text: results.ToString(),
-                cancellationToken: cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            await botClient.SendTextMessageAsync(
-                chatId: chatId,
-                text: $"❌ فشل اختبار الاتصال\n" +
-                      $"الخطأ: {ex.Message}",
-                cancellationToken: cancellationToken);
         }
     }
     else if (isRunning)
