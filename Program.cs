@@ -49,7 +49,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  "ping - اختبار الاتصال بين google والخادم",
+                  "/ping - اختبار الاتصال بالخادم (5 محاولات)",
             cancellationToken: cancellationToken);
     }
     else if (messageText.Equals("/stop", StringComparison.OrdinalIgnoreCase))
@@ -60,18 +60,24 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
             text: "⛔ البوت متوقف الآن. أرسل /start لإعادة التشغيل",
             cancellationToken: cancellationToken);
     }
-    else if (messageText.Equals("ping", StringComparison.OrdinalIgnoreCase) && isRunning)
+    else if (messageText.Equals("/ping", StringComparison.OrdinalIgnoreCase) && isRunning)
     {
         try
         {
-            var googleResult = await NetworkService.TestConnection("https://www.google.com");
-            var serverResult = await NetworkService.TestConnection("http://huc.edu.iq:9596/");
+            var results = new System.Text.StringBuilder();
+            results.AppendLine("🔄 جاري اختبار الاتصال بالخادم (5 محاولات)...");
+            
+            for (int i = 1; i <= 5; i++)
+            {
+                var result = await NetworkService.TestConnection("http://huc.edu.iq:9596/");
+                results.AppendLine($"\nالمحاولة #{i}:");
+                results.AppendLine(result);
+                await Task.Delay(1000); // انتظار ثانية بين المحاولات
+            }
             
             await botClient.SendTextMessageAsync(
                 chatId: chatId,
-                text: $"🌐 نتائج اختبار الاتصال:\n\n" +
-                      $"🔹 اتصال بموقع Google:\n{googleResult}\n\n" +
-                      $"🔹 اتصال بالخادم:\n{serverResult}",
+                text: results.ToString(),
                 cancellationToken: cancellationToken);
         }
         catch (Exception ex)
@@ -91,7 +97,7 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
                   "الأوامر المتاحة:\n" +
                   "/start - بدء التشغيل\n" +
                   "/stop - إيقاف البوت\n" +
-                  "ping - اختبار الاتصال بين google والخادم",
+                  "/ping - اختبار الاتصال بالخادم (5 محاولات)",
             cancellationToken: cancellationToken);
     }
 }
@@ -116,7 +122,7 @@ public static class NetworkService
         try
         {
             using var client = new HttpClient();
-            client.Timeout = TimeSpan.FromSeconds(5);
+            client.Timeout = TimeSpan.FromSeconds(3);
             
             var stopwatch = Stopwatch.StartNew();
             var response = await client.GetAsync(url);
@@ -125,17 +131,17 @@ public static class NetworkService
             if (response.IsSuccessStatusCode)
             {
                 return $"✅ الحالة: ناجح\n" +
-                       $"⏱️ وقت الاستجابة: {stopwatch.ElapsedMilliseconds}ms\n" +
-                       $"🔢 كود الحالة: {(int)response.StatusCode}";
+                       $"⏱️ الوقت: {stopwatch.ElapsedMilliseconds}ms\n" +
+                       $"🔢 الكود: {(int)response.StatusCode}";
             }
             
             return $"⚠️ الحالة: مشكلة\n" +
-                   $"⏱️ وقت الاستجابة: {stopwatch.ElapsedMilliseconds}ms\n" +
-                   $"🔢 كود الحالة: {(int)response.StatusCode}";
+                   $"⏱️ الوقت: {stopwatch.ElapsedMilliseconds}ms\n" +
+                   $"🔢 الكود: {(int)response.StatusCode}";
         }
         catch (TaskCanceledException)
         {
-            return "❌ الحالة: انتهى الوقت المحدد (5 ثواني)";
+            return "❌ الحالة: انتهى الوقت المحدد (3 ثواني)";
         }
         catch (HttpRequestException ex)
         {
