@@ -47,8 +47,8 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         
         var replyMarkup = new ReplyKeyboardMarkup(new[]
         {
-            new[] { KeyboardButton.WithText("النظام") },
-            new[] { KeyboardButton.WithText("موقع الجامعة") }
+            new[] { new KeyboardButton("النظام") },
+            new[] { new KeyboardButton("موقع الجامعة") }
         })
         {
             ResizeKeyboard = true,
